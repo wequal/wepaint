@@ -10,6 +10,9 @@ final class CanvasView: UIView, ToolHost {
     private(set) var textBox: TextBoxView?
 
     private var activeTouch: UITouch?
+    /// True while a secondary (right) click stroke is in progress with Color 1/Color 2 swapped.
+    private var swappedColorsForSecondaryClick = false
+    private var pointerInteraction: UIPointerInteraction?
     /// When true, single finger touches scroll instead of draw (Apple Pencil still draws).
     var fingerPans = false
 
@@ -36,6 +39,30 @@ final class CanvasView: UIView, ToolHost {
         layer.minificationFilter = .linear
         document.toolHost = self
         document.onInvalidate = { [weak self] rect in self?.invalidateCanvas(rect) }
+
+        // Pointer / trackpad support (iPad with trackpad, Mac Catalyst).
+        let hover = UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:)))
+        addGestureRecognizer(hover)
+        let pointer = UIPointerInteraction(delegate: self)
+        addInteraction(pointer)
+        pointerInteraction = pointer
+    }
+
+    @objc private func handleHover(_ g: UIHoverGestureRecognizer) {
+        switch g.state {
+        case .began, .changed:
+            let p = g.location(in: self)
+            document.cursorPosition = document.canvasRect.contains(p) ? p : nil
+        case .ended, .cancelled:
+            if activeTouch == nil { document.cursorPosition = nil }
+        default:
+            break
+        }
+    }
+
+    /// Re-evaluates the pointer shape (call when the tool, size or zoom changes).
+    func refreshPointer() {
+        pointerInteraction?.invalidate()
     }
 
     @available(*, unavailable)
@@ -221,9 +248,21 @@ final class CanvasView: UIView, ToolHost {
             return
         }
         activeTouch = touch
+        // Secondary (right) click paints with Color 2, like Paint.
+        if event?.buttonMask.contains(.secondary) == true, document.activeTool != .select, document.activeTool != .text {
+            document.swapColors()
+            swappedColorsForSecondaryClick = true
+        }
         let t = toolTouch(touch)
         document.cursorPosition = t.location
         activeTool.touchBegan(t, toolContext)
+    }
+
+    private func restoreColorsAfterSecondaryClick() {
+        if swappedColorsForSecondaryClick {
+            swappedColorsForSecondaryClick = false
+            document.swapColors()
+        }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -240,6 +279,7 @@ final class CanvasView: UIView, ToolHost {
         activeTouch = nil
         let t = toolTouch(active)
         activeTool.touchEnded(t, toolContext)
+        restoreColorsAfterSecondaryClick()
         document.cursorPosition = t.location
     }
 
@@ -247,6 +287,30 @@ final class CanvasView: UIView, ToolHost {
         guard let active = activeTouch, touches.contains(active) else { return }
         activeTouch = nil
         activeTool.touchCancelled(toolContext)
+        restoreColorsAfterSecondaryClick()
+    }
+}
+
+// MARK: - Pointer shape
+
+extension CanvasView: UIPointerInteractionDelegate {
+    func pointerInteraction(_ interaction: UIPointerInteraction, styleFor region: UIPointerRegion) -> UIPointerStyle? {
+        let z = max(0.01, document.zoom)
+        let path: UIBezierPath
+        switch document.activeTool {
+        case .pencil, .brush, .eraser:
+            var d = document.strokeWidth * z
+            if document.activeTool == .eraser { d *= 2 }
+            d = max(6, min(400, d))
+            path = UIBezierPath(ovalIn: CGRect(x: -d / 2, y: -d / 2, width: d, height: d))
+        case .text:
+            return UIPointerStyle(shape: .verticalBeam(length: 24), constrainedAxes: [])
+        default:
+            // Crosshair built from two thin bars (pointer shapes are filled regions).
+            path = UIBezierPath(rect: CGRect(x: -11, y: -1, width: 22, height: 2))
+            path.append(UIBezierPath(rect: CGRect(x: -1, y: -11, width: 2, height: 22)))
+        }
+        return UIPointerStyle(shape: .path(path), constrainedAxes: [])
     }
 }
 

@@ -125,7 +125,9 @@ struct ViewMenuContent: View {
         Toggle(isOn: $doc.showGrid) { Label("Gridlines", systemImage: "grid") }
         Toggle(isOn: $doc.showStatusBar) { Label("Status bar", systemImage: "rectangle.bottomthird.inset.filled") }
         Toggle(isOn: $doc.showLayersPanel) { Label("Layers panel", systemImage: "square.3.layers.3d") }
+        #if !targetEnvironment(macCatalyst)
         Toggle(isOn: $ui.fingerPans) { Label("Finger pans, Pencil draws", systemImage: "hand.draw") }
+        #endif
     }
 }
 

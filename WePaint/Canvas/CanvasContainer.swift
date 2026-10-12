@@ -114,8 +114,21 @@ final class CanvasHostView: UIView, UIScrollViewDelegate {
         canvas.syncTextBox()
         canvas.fingerPans = fingerPans
         scrollView.panGestureRecognizer.minimumNumberOfTouches = fingerPans ? 1 : 2
+        let pointerKey = PointerKey(tool: document.activeTool, size: document.strokeWidth, zoom: document.zoom)
+        if pointerKey != lastPointerKey {
+            lastPointerKey = pointerKey
+            canvas.refreshPointer()
+        }
         overlay.setNeedsDisplay()
     }
+
+    private struct PointerKey: Equatable {
+        var tool: ToolKind
+        var size: CGFloat
+        var zoom: CGFloat
+    }
+
+    private var lastPointerKey: PointerKey?
 
     var fingerPans = false
 
@@ -166,6 +179,7 @@ struct CanvasContainer: UIViewRepresentable {
     let secondaryColor: RGBA
     let showGrid: Bool
     let activeTool: ToolKind
+    let strokeWidth: CGFloat
 
     func makeUIView(context: Context) -> CanvasHostView {
         let host = CanvasHostView(document: document)
@@ -193,5 +207,6 @@ extension CanvasContainer {
         self.secondaryColor = document.secondaryColor
         self.showGrid = document.showGrid
         self.activeTool = document.activeTool
+        self.strokeWidth = document.strokeWidth
     }
 }
