@@ -161,6 +161,7 @@ struct ColorsSheet: View {
 /// Sheet with pickers for brushes / shapes / selection in compact layouts.
 struct ToolOptionsSheet: View {
     @Environment(PaintDocument.self) private var doc
+    @Environment(AppUIState.self) private var ui
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -206,6 +207,15 @@ struct ToolOptionsSheet: View {
                         Button("Crop to selection") { doc.cropToSelection(); dismiss() }.disabled(!doc.hasSelection)
                         Button("Delete selection", role: .destructive) { doc.deleteSelection(); dismiss() }.disabled(!doc.hasSelection)
                     }
+                    Section("Transform selection") {
+                        Button { doc.rotate(.clockwise90) } label: { Label("Rotate right 90°", systemImage: "rotate.right") }
+                        Button { doc.rotate(.counterClockwise90) } label: { Label("Rotate left 90°", systemImage: "rotate.left") }
+                        Button { doc.rotate(.half) } label: { Label("Rotate 180°", systemImage: "arrow.triangle.2.circlepath") }
+                        Button { doc.flip(.horizontal) } label: { Label("Flip horizontal", systemImage: "arrow.left.and.right") }
+                        Button { doc.flip(.vertical) } label: { Label("Flip vertical", systemImage: "arrow.up.and.down") }
+                        Button { dismiss(); ui.showResizeSkew = true } label: { Label("Resize and skew", systemImage: "arrow.up.left.and.arrow.down.right") }
+                    }
+                    .disabled(!doc.hasSelection)
                 default:
                     EmptyView()
                 }

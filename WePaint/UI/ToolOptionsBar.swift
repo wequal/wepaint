@@ -40,6 +40,8 @@ struct ToolOptionsBar: View {
             Button("Crop") { doc.cropToSelection() }.disabled(!doc.hasSelection)
             Button("Delete", role: .destructive) { doc.deleteSelection() }.disabled(!doc.hasSelection)
             Divider().frame(height: 22)
+            SelectionTransformButtons()
+            Divider().frame(height: 22)
             Button { doc.cutSelection() } label: { Image(systemName: "scissors") }.disabled(!doc.hasSelection)
             Button { doc.copySelection() } label: { Image(systemName: "doc.on.doc") }
             Button { doc.paste() } label: { Image(systemName: "doc.on.clipboard") }
@@ -84,6 +86,30 @@ struct ToolOptionsBar: View {
             Divider().frame(height: 22)
             SizeControl(compact: compact)
         }
+    }
+}
+
+/// Rotate / flip / resize buttons that act on the current selection.
+struct SelectionTransformButtons: View {
+    @Environment(PaintDocument.self) private var doc
+    @Environment(AppUIState.self) private var ui
+
+    var body: some View {
+        Group {
+            Button { doc.rotate(.clockwise90) } label: { Image(systemName: "rotate.right") }
+                .help("Rotate selection right 90°")
+            Button { doc.rotate(.counterClockwise90) } label: { Image(systemName: "rotate.left") }
+                .help("Rotate selection left 90°")
+            Button { doc.rotate(.half) } label: { Image(systemName: "arrow.triangle.2.circlepath") }
+                .help("Rotate selection 180°")
+            Button { doc.flip(.horizontal) } label: { Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right") }
+                .help("Flip selection horizontal")
+            Button { doc.flip(.vertical) } label: { Image(systemName: "arrow.up.and.down.righttriangle.up.righttriangle.down") }
+                .help("Flip selection vertical")
+            Button { ui.showResizeSkew = true } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
+                .help("Resize and skew selection")
+        }
+        .disabled(!doc.hasSelection)
     }
 }
 

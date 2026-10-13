@@ -50,22 +50,23 @@ struct Selection {
     }
 }
 
-/// Pixels that were lifted off a layer and can be moved/resized before being committed.
+/// Pixels that were lifted off a layer and can be moved/resized/rotated/flipped before being committed.
 struct FloatingSelection {
     /// The lifted pixels (already masked to the selection shape, transparent outside).
     var image: CGImage
-    /// Where the pixels are placed on the canvas. May differ in size from `image` when scaled.
+    /// Where the pixels are placed on the canvas. May differ in size from `image` when scaled by dragging handles.
     var frame: CGRect
-    /// Selection outline in local coordinates relative to the original lifted bounds.
+    /// Selection outline in image pixel coordinates (0...image.width, 0...image.height).
     var localPath: CGPath
-    /// Where the pixels were lifted from (used to scale the outline when resizing and for undo bounds).
-    var originalFrame: CGRect
-    var originalSize: CGSize { originalFrame.size }
+    /// The region of the layer that was cleared when the pixels were lifted (used for undo bounds).
+    var sourceFrame: CGRect
+
+    var imageSize: CGSize { CGSize(width: image.width, height: image.height) }
 
     /// The outline in canvas coordinates.
     var canvasPath: CGPath {
-        let sx = originalSize.width > 0 ? frame.width / originalSize.width : 1
-        let sy = originalSize.height > 0 ? frame.height / originalSize.height : 1
+        let sx = imageSize.width > 0 ? frame.width / imageSize.width : 1
+        let sy = imageSize.height > 0 ? frame.height / imageSize.height : 1
         var t = CGAffineTransform(translationX: frame.minX, y: frame.minY).scaledBy(x: sx, y: sy)
         return localPath.copy(using: &t) ?? localPath
     }

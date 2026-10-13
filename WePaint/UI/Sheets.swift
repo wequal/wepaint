@@ -17,11 +17,15 @@ struct ResizeSkewSheet: View {
     @State private var maintainAspect = true
     @State private var skewH: Double = 0
     @State private var skewV: Double = 0
+    /// Captured on appear: the selection size if a selection exists, otherwise the canvas size.
+    @State private var baseWidth: Double = 1
+    @State private var baseHeight: Double = 1
+    @State private var targetsSelection = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Resize") {
+                Section(targetsSelection ? "Resize selection (\(Int(baseWidth)) × \(Int(baseHeight)) px)" : "Resize image") {
                     Picker("By", selection: $units) {
                         ForEach(Units.allCases) { u in Text(u.title).tag(u) }
                     }
@@ -29,11 +33,11 @@ struct ResizeSkewSheet: View {
                     .onChange(of: units) { _, new in
                         switch new {
                         case .percentage:
-                            horizontal = (horizontal / Double(document.canvasWidth) * 100).rounded()
-                            vertical = (vertical / Double(document.canvasHeight) * 100).rounded()
+                            horizontal = (horizontal / baseWidth * 100).rounded()
+                            vertical = (vertical / baseHeight * 100).rounded()
                         case .pixels:
-                            horizontal = (Double(document.canvasWidth) * horizontal / 100).rounded()
-                            vertical = (Double(document.canvasHeight) * vertical / 100).rounded()
+                            horizontal = (baseWidth * horizontal / 100).rounded()
+                            vertical = (baseHeight * vertical / 100).rounded()
                         }
                     }
                     numberRow("Horizontal", value: $horizontal) { new in
@@ -58,19 +62,30 @@ struct ResizeSkewSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .onAppear {
+            if let s = document.selectionSize, s.width >= 1, s.height >= 1 {
+                baseWidth = Double(s.width)
+                baseHeight = Double(s.height)
+                targetsSelection = true
+            } else {
+                baseWidth = Double(document.canvasWidth)
+                baseHeight = Double(document.canvasHeight)
+                targetsSelection = false
+            }
+        }
     }
 
     private var aspectRatio: Double {
         switch units {
         case .percentage: return 1
-        case .pixels: return Double(document.canvasHeight) / Double(max(1, document.canvasWidth))
+        case .pixels: return baseHeight / max(1, baseWidth)
         }
     }
 
     private var resultSize: (Int, Int) {
         switch units {
         case .percentage:
-            return (Int((Double(document.canvasWidth) * horizontal / 100).rounded()), Int((Double(document.canvasHeight) * vertical / 100).rounded()))
+            return (Int((baseWidth * horizontal / 100).rounded()), Int((baseHeight * vertical / 100).rounded()))
         case .pixels:
             return (Int(horizontal), Int(vertical))
         }
@@ -93,7 +108,7 @@ struct ResizeSkewSheet: View {
 
     private func apply() {
         let (w, h) = resultSize
-        if w != document.canvasWidth || h != document.canvasHeight, w >= 1, h >= 1 {
+        if w != Int(baseWidth) || h != Int(baseHeight), w >= 1, h >= 1 {
             document.resizeImage(toPixelWidth: w, height: h)
         }
         if abs(skewH) > 0.01 || abs(skewV) > 0.01 {

@@ -90,16 +90,17 @@ struct ImageMenuContent: View {
     var body: some View {
         Button { doc.cropToSelection() } label: { Label("Crop", systemImage: "crop") }
             .disabled(!doc.hasSelection)
-        Button { ui.showResizeSkew = true } label: { Label("Resize and skew", systemImage: "arrow.up.left.and.arrow.down.right") }
+        let target = doc.hasSelection ? " selection" : ""
+        Button { ui.showResizeSkew = true } label: { Label("Resize and skew\(target)", systemImage: "arrow.up.left.and.arrow.down.right") }
         Menu {
             Button { doc.rotate(.clockwise90) } label: { Label("Rotate right 90°", systemImage: "rotate.right") }
             Button { doc.rotate(.counterClockwise90) } label: { Label("Rotate left 90°", systemImage: "rotate.left") }
             Button { doc.rotate(.half) } label: { Label("Rotate 180°", systemImage: "arrow.triangle.2.circlepath") }
-        } label: { Label("Rotate", systemImage: "rotate.right") }
+        } label: { Label("Rotate\(target)", systemImage: "rotate.right") }
         Menu {
             Button { doc.flip(.vertical) } label: { Label("Flip vertical", systemImage: "arrow.up.and.down") }
             Button { doc.flip(.horizontal) } label: { Label("Flip horizontal", systemImage: "arrow.left.and.right") }
-        } label: { Label("Flip", systemImage: "arrow.left.and.right.righttriangle.left.righttriangle.right") }
+        } label: { Label("Flip\(target)", systemImage: "arrow.left.and.right.righttriangle.left.righttriangle.right") }
         Divider()
         Button { ui.showProperties = true } label: { Label("Image properties", systemImage: "info.circle") }
     }

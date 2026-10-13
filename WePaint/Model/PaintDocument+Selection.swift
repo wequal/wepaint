@@ -92,7 +92,7 @@ extension PaintDocument {
         guard let (img, bounds, localPath) = extractImage(from: layer, selection: sel, transparent: transparentSelection) else { return false }
         beginPixelEdit(on: layer)
         clearRegion(sel.path, on: layer)
-        floating = FloatingSelection(image: img, frame: bounds, localPath: localPath, originalFrame: bounds)
+        floating = FloatingSelection(image: img, frame: bounds, localPath: localPath, sourceFrame: bounds)
         selection = nil
         bumpRender()
         return true
@@ -110,7 +110,7 @@ extension PaintDocument {
         beginPixelEdit(on: activeLayer)
         floating = FloatingSelection(image: image, frame: frame,
                                      localPath: CGPath(rect: CGRect(x: 0, y: 0, width: w, height: h), transform: nil),
-                                     originalFrame: frame)
+                                     sourceFrame: frame)
         if activeTool != .select { activeTool = .select }
         bumpRender()
     }
@@ -122,7 +122,122 @@ extension PaintDocument {
         layer.draw(f.image, in: f.frame, interpolate: true)
         floating = nil
         selection = Selection(path: f.canvasPath)
-        endPixelEdit(label: "Move selection", dirtyRect: f.frame.union(f.originalFrame))
+        endPixelEdit(label: "Move selection", dirtyRect: f.frame.union(f.sourceFrame))
+    }
+
+    /// Makes sure the current selection is lifted so it can be transformed. Returns false if there is no selection.
+    @discardableResult
+    func ensureFloating() -> Bool {
+        if floating != nil { return true }
+        guard selection != nil else { return false }
+        toolHost?.commitPendingToolWork()
+        return liftSelection()
+    }
+
+    /// If the floating frame was scaled with the handles, resample the pixels so image size == frame size.
+    private func bakeFloatingScale() {
+        guard var f = floating else { return }
+        let target = CGSize(width: max(1, f.frame.width.rounded()), height: max(1, f.frame.height.rounded()))
+        guard target != f.imageSize else { return }
+        let sx = target.width / f.imageSize.width, sy = target.height / f.imageSize.height
+        let temp = RasterLayer(width: Int(target.width), height: Int(target.height), name: "temp")
+        temp.draw(f.image, in: temp.bounds)
+        var t = CGAffineTransform(scaleX: sx, y: sy)
+        guard let img = temp.image, let path = f.localPath.copy(using: &t) else { return }
+        f.image = img
+        f.localPath = path
+        f.frame.size = target
+        floating = f
+    }
+
+    /// Applies `transform` (image-local pixel coordinates, old -> new) to the floating pixels and outline.
+    /// `anchorCenter` keeps the selection centred (rotation); otherwise the top-left corner stays put.
+    private func transformFloating(_ transform: CGAffineTransform, newSize: CGSize, anchorCenter: Bool, interpolate: Bool) {
+        bakeFloatingScale()
+        guard var f = floating else { return }
+        let w = max(1, Int(newSize.width.rounded())), h = max(1, Int(newSize.height.rounded()))
+        let temp = RasterLayer(width: w, height: h, name: "temp")
+        temp.context.saveGState()
+        temp.context.concatenate(transform)
+        temp.context.interpolationQuality = interpolate ? .high : .none
+        temp.context.drawUpright(f.image, in: CGRect(origin: .zero, size: f.imageSize))
+        temp.context.restoreGState()
+        temp.invalidate()
+        var t = transform
+        guard let img = temp.image, let path = f.localPath.copy(using: &t) else { return }
+        let oldCenter = CGPoint(x: f.frame.midX, y: f.frame.midY)
+        f.image = img
+        f.localPath = path
+        if anchorCenter {
+            f.frame = CGRect(x: (oldCenter.x - CGFloat(w) / 2).rounded(), y: (oldCenter.y - CGFloat(h) / 2).rounded(),
+                             width: CGFloat(w), height: CGFloat(h))
+        } else {
+            f.frame = CGRect(origin: f.frame.origin, size: CGSize(width: w, height: h))
+        }
+        floating = f
+        bumpRender()
+    }
+
+    // MARK: - Selection transforms (Paint applies Rotate/Flip/Resize to the selection when one exists)
+
+    func rotateSelection(_ amount: RotationAmount) {
+        guard ensureFloating(), let f = floating else { return }
+        let w = f.frame.width.rounded(), h = f.frame.height.rounded()
+        switch amount {
+        case .clockwise90:
+            transformFloating(CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: h, ty: 0),
+                              newSize: CGSize(width: h, height: w), anchorCenter: true, interpolate: false)
+        case .counterClockwise90:
+            transformFloating(CGAffineTransform(a: 0, b: -1, c: 1, d: 0, tx: 0, ty: w),
+                              newSize: CGSize(width: h, height: w), anchorCenter: true, interpolate: false)
+        case .half:
+            transformFloating(CGAffineTransform(a: -1, b: 0, c: 0, d: -1, tx: w, ty: h),
+                              newSize: CGSize(width: w, height: h), anchorCenter: true, interpolate: false)
+        }
+    }
+
+    func flipSelection(_ direction: FlipDirection) {
+        guard ensureFloating(), let f = floating else { return }
+        let w = f.frame.width.rounded(), h = f.frame.height.rounded()
+        switch direction {
+        case .horizontal:
+            transformFloating(CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: w, ty: 0),
+                              newSize: CGSize(width: w, height: h), anchorCenter: false, interpolate: false)
+        case .vertical:
+            transformFloating(CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: h),
+                              newSize: CGSize(width: w, height: h), anchorCenter: false, interpolate: false)
+        }
+    }
+
+    func resizeSelection(toPixelWidth newW: Int, height newH: Int) {
+        guard newW >= 1, newH >= 1, newW <= 8192, newH <= 8192, ensureFloating(), let f = floating else { return }
+        let sx = CGFloat(newW) / f.frame.width.rounded(), sy = CGFloat(newH) / f.frame.height.rounded()
+        transformFloating(CGAffineTransform(scaleX: sx, y: sy), newSize: CGSize(width: newW, height: newH),
+                          anchorCenter: false, interpolate: true)
+    }
+
+    func resizeSelection(scaleX: CGFloat, scaleY: CGFloat) {
+        guard scaleX > 0, scaleY > 0, ensureFloating(), let f = floating else { return }
+        resizeSelection(toPixelWidth: Int(max(1, (f.frame.width * scaleX).rounded())),
+                        height: Int(max(1, (f.frame.height * scaleY).rounded())))
+    }
+
+    func skewSelection(horizontalDegrees: CGFloat, verticalDegrees: CGFloat) {
+        let hd = max(-89, min(89, horizontalDegrees)), vd = max(-89, min(89, verticalDegrees))
+        guard abs(hd) > 0.01 || abs(vd) > 0.01, ensureFloating(), let f = floating else { return }
+        let th = tan(hd * .pi / 180), tv = tan(vd * .pi / 180)
+        var t = CGAffineTransform(a: 1, b: tv, c: th, d: 1, tx: 0, ty: 0)
+        let box = CGRect(origin: .zero, size: CGSize(width: f.frame.width.rounded(), height: f.frame.height.rounded())).applying(t)
+        t = t.concatenating(CGAffineTransform(translationX: -box.minX, y: -box.minY))
+        transformFloating(t, newSize: CGSize(width: box.width.rounded(.up), height: box.height.rounded(.up)),
+                          anchorCenter: false, interpolate: true)
+    }
+
+    /// Size of the current selection (floating frame or selection bounds), if any.
+    var selectionSize: CGSize? {
+        if let f = floating { return CGSize(width: f.frame.width.rounded(), height: f.frame.height.rounded()) }
+        if let s = selection { return s.integralBounds(in: canvasRect).size }
+        return nil
     }
 
     func moveFloating(by delta: CGSize) {
@@ -171,7 +286,7 @@ extension PaintDocument {
             // Discard the floating pixels; the hole left behind is the result.
             floating = nil
             selection = Selection(path: f.canvasPath)
-            endPixelEdit(label: "Delete", dirtyRect: f.originalFrame)
+            endPixelEdit(label: "Delete", dirtyRect: f.sourceFrame)
             return
         }
         guard let sel = selection else { return }

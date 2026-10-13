@@ -47,7 +47,9 @@ extension PaintDocument {
         if sizeChanged { fitToWindowRequest += 1 }
     }
 
+    /// Rotates the selection if there is one, otherwise the whole image.
     func rotate(_ amount: RotationAmount) {
+        if hasSelection { rotateSelection(amount); return }
         let w = CGFloat(canvasWidth), h = CGFloat(canvasHeight)
         switch amount {
         case .clockwise90:
@@ -66,7 +68,9 @@ extension PaintDocument {
         fitToWindowRequest += 1
     }
 
+    /// Flips the selection if there is one, otherwise the whole image.
     func flip(_ direction: FlipDirection) {
+        if hasSelection { flipSelection(direction); return }
         let w = CGFloat(canvasWidth), h = CGFloat(canvasHeight)
         switch direction {
         case .horizontal:
@@ -78,23 +82,27 @@ extension PaintDocument {
         }
     }
 
-    /// Resizes the image by independent horizontal/vertical scale factors.
+    /// Resizes the selection (if any) or the image by independent horizontal/vertical scale factors.
     func resizeImage(scaleX: CGFloat, scaleY: CGFloat) {
         guard scaleX > 0, scaleY > 0 else { return }
+        if hasSelection { resizeSelection(scaleX: scaleX, scaleY: scaleY); return }
         let newW = max(1, (CGFloat(canvasWidth) * scaleX).rounded())
         let newH = max(1, (CGFloat(canvasHeight) * scaleY).rounded())
         resizeImage(toPixelWidth: Int(newW), height: Int(newH))
     }
 
+    /// Resizes the selection (if any) or the image to the given pixel size.
     func resizeImage(toPixelWidth newW: Int, height newH: Int) {
         guard newW >= 1, newH >= 1, newW <= 8192, newH <= 8192 else { return }
+        if hasSelection { resizeSelection(toPixelWidth: newW, height: newH); return }
         let sx = CGFloat(newW) / CGFloat(canvasWidth)
         let sy = CGFloat(newH) / CGFloat(canvasHeight)
         transformAllLayers(to: CGSize(width: newW, height: newH), transform: CGAffineTransform(scaleX: sx, y: sy), label: "Resize")
     }
 
-    /// Skews the image by the given angles in degrees (as in Paint's Resize and Skew dialog).
+    /// Skews the selection (if any) or the image by the given angles in degrees (as in Paint's Resize and Skew dialog).
     func skewImage(horizontalDegrees: CGFloat, verticalDegrees: CGFloat) {
+        if hasSelection { skewSelection(horizontalDegrees: horizontalDegrees, verticalDegrees: verticalDegrees); return }
         let hd = max(-89, min(89, horizontalDegrees)), vd = max(-89, min(89, verticalDegrees))
         guard abs(hd) > 0.01 || abs(vd) > 0.01 else { return }
         let th = tan(hd * .pi / 180), tv = tan(vd * .pi / 180)
