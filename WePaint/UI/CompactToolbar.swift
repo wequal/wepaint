@@ -54,6 +54,7 @@ struct CompactToolbar: View {
                                 .fill(doc.activeTool == kind ? Color.accentColor.opacity(0.25) : .clear))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("tool.\(kind.rawValue)")
                     }
                 }
                 .padding(.horizontal, 6)

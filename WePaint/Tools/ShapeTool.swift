@@ -172,7 +172,11 @@ final class ShapeTool: Tool {
             shape.rect = CGRect.spanning(dragStart, p)
             shape.p2 = p
             if shape.kind == .polygon, shape.polygon.count >= 2 { shape.polygon[shape.polygon.count - 1] = p }
-            let tiny = dragStart.distance(to: p) < 2
+            // Treat small movements as a tap (finger/mouse jitter), independent of zoom, and discard
+            // degenerate closed shapes (zero width or height) that would otherwise render as stray lines.
+            let tapThreshold = max(2, 10 / ctx.zoom)
+            let degenerate = !shape.kind.isOpenPath && (shape.rect.width < 1 || shape.rect.height < 1)
+            let tiny = dragStart.distance(to: p) < tapThreshold || degenerate
             if tiny {
                 pending = nil
                 return

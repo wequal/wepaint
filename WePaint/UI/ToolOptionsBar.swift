@@ -11,6 +11,7 @@ struct ToolOptionsBar: View {
                 Label(doc.activeTool.title, systemImage: doc.activeTool.systemImage)
                     .font(.subheadline.weight(.semibold))
                     .labelStyle(.titleAndIcon)
+                    .accessibilityIdentifier("toolTitle")
                 Divider().frame(height: 22)
                 content
             }
@@ -177,6 +178,7 @@ struct ShapeGrid: View {
                 }
                 .buttonStyle(.plain)
                 .help(kind.title)
+                .accessibilityIdentifier("shape.\(kind.rawValue)")
             }
         }
     }

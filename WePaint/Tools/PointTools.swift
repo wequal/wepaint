@@ -5,21 +5,19 @@ import UIKit
 
 final class FillTool: Tool {
     var kind: ToolKind { .fill }
-    private var start: CGPoint = .zero
 
+    /// Like Paint, the fill happens on press (not release), so it does not depend on how a tap ends.
     func touchBegan(_ touch: ToolTouch, _ ctx: ToolContext) {
-        start = touch.location
-    }
-
-    func touchMoved(_ touch: ToolTouch, _ ctx: ToolContext) {}
-
-    func touchEnded(_ touch: ToolTouch, _ ctx: ToolContext) {
         let doc = ctx.document
         doc.commitFloating()
         let p = touch.location
-        let x = Int(p.x), y = Int(p.y)
+        let x = Int(p.x.rounded(.down)), y = Int(p.y.rounded(.down))
         guard x >= 0, y >= 0, x < doc.canvasWidth, y < doc.canvasHeight else { return }
-        if let sel = doc.selection, !sel.contains(p) { return }
+        // Clicking outside an active selection clears it (and fills nothing), as in Paint.
+        if let sel = doc.selection, !sel.contains(p) {
+            doc.deselect()
+            return
+        }
         let layer = ctx.layer
         doc.beginPixelEdit(on: layer)
         let rect = FloodFill.fill(layer: layer, x: x, y: y, color: doc.primaryColor,
@@ -31,6 +29,8 @@ final class FillTool: Tool {
         }
     }
 
+    func touchMoved(_ touch: ToolTouch, _ ctx: ToolContext) {}
+    func touchEnded(_ touch: ToolTouch, _ ctx: ToolContext) {}
     func touchCancelled(_ ctx: ToolContext) {}
 }
 

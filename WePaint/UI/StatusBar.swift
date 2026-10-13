@@ -12,8 +12,11 @@ struct StatusBar: View {
                 Label(selText, systemImage: "rectangle.dashed")
             }
             Label("\(doc.canvasWidth) × \(doc.canvasHeight)px", systemImage: "arrow.up.left.and.arrow.down.right")
-            if !compact, let lbl = doc.history.undoLabel {
-                Text("Last: \(lbl)").foregroundStyle(.secondary)
+            if let lbl = doc.history.undoLabel {
+                Text("Last: \(lbl)")
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("lastAction")
             }
             Spacer()
             Button { doc.zoomOut() } label: { Image(systemName: "minus.magnifyingglass") }

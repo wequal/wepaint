@@ -185,5 +185,6 @@ struct RibbonView: View {
         }
         .buttonStyle(.plain)
         .help(kind.title)
+        .accessibilityIdentifier("tool.\(kind.rawValue)")
     }
 }

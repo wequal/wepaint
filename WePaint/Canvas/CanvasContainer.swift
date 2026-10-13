@@ -16,6 +16,7 @@ final class CanvasHostView: UIView, UIScrollViewDelegate {
         self.canvas = CanvasView(document: document)
         super.init(frame: .zero)
         backgroundColor = UIColor(white: 0.87, alpha: 1)
+        accessibilityIdentifier = "canvas"
 
         scrollView.delegate = self
         scrollView.minimumZoomScale = ZoomLevels.minimum
@@ -38,6 +39,10 @@ final class CanvasHostView: UIView, UIScrollViewDelegate {
 
         let twoFingerTap = UITapGestureRecognizer(target: self, action: #selector(handleTwoFingerTap(_:)))
         twoFingerTap.numberOfTouchesRequired = 2
+        // Never hold back or cancel single-touch events destined for the canvas tools.
+        twoFingerTap.delaysTouchesBegan = false
+        twoFingerTap.delaysTouchesEnded = false
+        twoFingerTap.cancelsTouchesInView = false
         scrollView.addGestureRecognizer(twoFingerTap)
     }
 

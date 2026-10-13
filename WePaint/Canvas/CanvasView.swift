@@ -42,6 +42,7 @@ final class CanvasView: UIView, ToolHost {
 
         // Pointer / trackpad support (iPad with trackpad, Mac Catalyst).
         let hover = UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:)))
+        hover.cancelsTouchesInView = false
         addGestureRecognizer(hover)
         let pointer = UIPointerInteraction(delegate: self)
         addInteraction(pointer)

@@ -83,14 +83,16 @@ final class SelectTool: Tool {
         switch drag {
         case .marquee:
             let r = CGRect.spanning(start, p).integral.intersection(doc.canvasRect)
-            if r.width >= 1, r.height >= 1 {
+            let isTap = start.distance(to: p) < max(2, 10 / ctx.zoom)
+            if !isTap, r.width >= 1, r.height >= 1 {
                 doc.selection = Selection.rect(r)
             } else {
                 doc.selection = nil
             }
         case .lasso:
             lassoPoints.append(p)
-            if lassoPoints.count >= 3 {
+            let isTap = (lassoPoints.map { $0.distance(to: start) }.max() ?? 0) < max(2, 10 / ctx.zoom)
+            if !isTap, lassoPoints.count >= 3 {
                 let path = CGMutablePath()
                 path.addLines(between: lassoPoints)
                 path.closeSubpath()
