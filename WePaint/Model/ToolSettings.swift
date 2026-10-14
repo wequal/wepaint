@@ -200,7 +200,7 @@ struct TextStyle: Equatable {
         "Trebuchet MS", "Avenir", "Futura", "Gill Sans", "Palatino", "Menlo", "Chalkboard SE", "Marker Felt", "Noteworthy",
     ]
 
-    static let sizeChoices: [CGFloat] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
+    static let sizeChoices: [CGFloat] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72, 96, 128, 160, 192, 224, 256]
 
     var uiFont: UIFont {
         var font = UIFont(name: fontName, size: fontSize) ?? UIFont.systemFont(ofSize: fontSize)

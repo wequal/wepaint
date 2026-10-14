@@ -64,8 +64,9 @@ final class TextTool: Tool {
         case .create:
             var r = CGRect.spanning(start, p)
             if r.width < 20 || r.height < 12 {
-                let defaultW = max(160, doc.textStyle.fontSize * 8)
-                let defaultH = max(40, doc.textStyle.fontSize * 1.6)
+                let canvas = doc.canvasRect
+                let defaultW = min(max(160, doc.textStyle.fontSize * 8), max(40, canvas.maxX - start.x))
+                let defaultH = min(max(40, doc.textStyle.fontSize * 1.6), max(24, canvas.maxY - start.y))
                 r = CGRect(x: start.x, y: start.y, width: defaultW, height: defaultH)
             }
             r.origin = r.origin.rounded
